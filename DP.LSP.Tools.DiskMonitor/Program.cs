@@ -24,11 +24,14 @@ namespace DP.LSP.Tools.DiskMon
             var lowDrives = diskManager.GetLowDrives();
             if (lowDrives.Any())
             {
-                lowDrives.ToList().ForEach(LogHelper.Instance.Info);
+                lowDrives.ToList().ForEach(LogHelper.Instance.Warn);
                 email.SendAlert(lowDrives, diskManager.GetDrives(d => d.IsReady && !d.IsLow));
             }
             else
+            {
+                LogHelper.Instance.Info("All drives have sufficient disk space.");
                 email.SendReport(diskManager.GetDrives(d => d.IsReady));
+            }
 
             //Console.WriteLine("Press any key to continue...");
             //Console.Read();
