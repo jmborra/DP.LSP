@@ -17,6 +17,7 @@ namespace DP.LSP.Tools.DiskMon.Configuration
         #endregion
 
         #region Properties
+        //TODO: Refactor
         public static IEnumerable<Drive> Drives
         {
             get
