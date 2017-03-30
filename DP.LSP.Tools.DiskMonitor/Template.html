@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font: normal 12pt 'Segoe UI'; }
+        .h { color: #2D2D30; font-size: 14pt; }
+        .th td { color: #696969; font-size: 10pt; }
+        .tb1 td { color: red; font-size: 14pt; }
+        .tb2 td { color: blue; font-size: 10pt; }
+    </style>
+</head>
+<body>
+    <span class="h">Low disk space on <b><!--%SERVER%--></b> for the following drives:</span>
+    <br/>
+    <table>
+        <tr class="th">
+            <td style="width: 50px">DRIVE</td>
+            <td>CAPACITY</td>
+        </tr>
+        <!--%LOW DRIVES%-->
+    </table>
+    <br />
+    <span>other drives:</span>
+    <br/>
+    <table>
+        <tr class="th">
+            <td style="width: 50px">DRIVE</td>
+            <td>CAPACITY</td>
+        </tr>
+        <!--%OTHER DRIVES%-->
+    </table>
+</body>
+</html>
