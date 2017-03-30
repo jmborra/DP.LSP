@@ -10,7 +10,20 @@ namespace DP.LSP.Tools.DiskMon.Configuration
 {
     public enum ReportingFrequency { Daily, Weekly, Monthly, Yearly }
 
-    internal sealed class ConfigurationHelper
+    interface IConfigurationHelper
+    {
+        IEnumerable<Drive> Drives { get; }
+        DateTime LastReportDate { get; set; }
+        string MailSender { get; }
+        string MailSubject { get; }
+        IEnumerable<Recipient> Recipients { get; }
+        ReportingFrequency ReportingFrequency { get; }
+        string SmtpHost { get; }
+        int SmtpPort { get; }
+        void Load();
+    }
+
+    internal class ConfigurationHelper : IConfigurationHelper
     {
         #region Fields
         private static SettingsSection _settings;
@@ -18,7 +31,7 @@ namespace DP.LSP.Tools.DiskMon.Configuration
 
         #region Properties
         //TODO: Refactor
-        public static IEnumerable<Drive> Drives
+        public IEnumerable<Drive> Drives
         {
             get
             {
@@ -37,7 +50,7 @@ namespace DP.LSP.Tools.DiskMon.Configuration
             }
         }
 
-        internal static DateTime LastReportDate
+        public DateTime LastReportDate
         {
             get { return Convert.ToDateTime(Properties.Settings.Default[Constants.LastReportDateKey]); }
             set
@@ -47,17 +60,17 @@ namespace DP.LSP.Tools.DiskMon.Configuration
             }
         }
 
-        public static string MailSender
+        public string MailSender
         {
             get { return Get<string>(Constants.MailSenderKey); }
         }
 
-        public static string MailSubject
+        public string MailSubject
         {
             get { return Get<string>(Constants.MailSubjectKey); }
         }
 
-        public static IEnumerable<Recipient> Recipients
+        public IEnumerable<Recipient> Recipients
         {
             get
             {
@@ -65,24 +78,24 @@ namespace DP.LSP.Tools.DiskMon.Configuration
                     yield return new Recipient(recipient.Email);
             }
         }
-        public static ReportingFrequency ReportingFrequency
+        public ReportingFrequency ReportingFrequency
         {
             get { return Get<ReportingFrequency>(Constants.ReportingFrequencyKey); }
         }
 
-        public static string SmtpHost
+        public string SmtpHost
         {
             get { return Get<string>(Constants.SmtpHostKey); }
         }
 
-        public static int SmtpPort
+        public int SmtpPort
         {
             get { return Get<int>(Constants.SmtpPortKey); }
         }
         #endregion
 
         #region Methods
-        private static T Get<T>(string key)
+        private T Get<T>(string key)
         {
             var value = ConfigurationManager.AppSettings[key];
             if (!string.IsNullOrEmpty(value))            
@@ -96,11 +109,11 @@ namespace DP.LSP.Tools.DiskMon.Configuration
                 catch {}
 
             var error = string.Format("Value for {0} is invalid or missing.", key);
-            LogHelper.Logger.Error(error);
+            LogHelper.Instance.Error(error);
             throw new Exception(error);
         }
 
-        public static void Load()
+        public void Load()
         {
             try
             {
@@ -108,7 +121,7 @@ namespace DP.LSP.Tools.DiskMon.Configuration
             }
             catch(Exception e)
             {
-                LogHelper.Logger.ErrorFormat("Unable to load configuration: {0}.", e);
+                LogHelper.Instance.ErrorFormat("Unable to load configuration: {0}.", e);
                 throw e;
             }
         } 

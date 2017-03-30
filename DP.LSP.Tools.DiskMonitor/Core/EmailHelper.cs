@@ -11,8 +11,87 @@ using DP.LSP.Tools.DiskMon.Configuration;
 
 namespace DP.LSP.Tools.DiskMon.Core
 {
-    internal sealed class EmailHelper
+    interface IEmailHelper
     {
+        void SendAlert(IEnumerable<Drive> lowDrives, IEnumerable<Drive> otherDrives);
+        void SendReport(IEnumerable<Drive> drives);
+    }
+
+    internal class EmailHelper : IEmailHelper
+    {
+        public void SendAlert(IEnumerable<Drive> lowDrives, IEnumerable<Drive> otherDrives)
+        {
+            var config = ServiceLocator.Instance.GetService<IConfigurationHelper>();
+            var diskManager = ServiceLocator.Instance.GetService<IDiskManager>();
+
+            var builder = CreateBuilder("DP.LSP.Tools.DiskMon.Template.html");
+            builder.Replace(Constants.EmailMachinePlaceholderKey, diskManager.MachineName);
+            builder.Replace(Constants.EmailLowDrivesPlaceholderKey, Compose(lowDrives));
+
+            if (otherDrives.Any())
+                builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, Compose(otherDrives));
+            else
+                builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, "<tr class=\"tb2\"><td colspan=\"2\">None</td></tr>");
+
+            var recipients = config.Recipients.Select(r => r.Email);
+            if (recipients.Any())
+                Send(config.MailSender,
+                    string.Format("{0} on {1}", config.MailSubject, diskManager.MachineName),
+                    builder.ToString(),
+                    recipients,
+                    true);
+            else
+            {
+                var error = "Unable to send email. No recipients specified in config.";
+                LogHelper.Instance.Error(error);
+                throw new Exception(error);
+            }
+        }
+
+        //TODO: Refactor
+        public void SendReport(IEnumerable<Drive> drives)
+        {
+            var config = ServiceLocator.Instance.GetService<IConfigurationHelper>();
+            var diskManager = ServiceLocator.Instance.GetService<IDiskManager>();
+
+            var lastReportDate = config.LastReportDate;
+            var sendReport = false;
+            switch (config.ReportingFrequency)
+            {
+                case ReportingFrequency.Daily: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 1; break;
+                case ReportingFrequency.Weekly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 7; break;
+                case ReportingFrequency.Monthly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 30; break;
+                case ReportingFrequency.Yearly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 365; break;
+            }
+
+            if (sendReport)
+            {
+                config.LastReportDate = DateTime.Now;
+                var builder = CreateBuilder("DP.LSP.Tools.DiskMon.Report.html");
+                builder.Replace(Constants.EmailMachinePlaceholderKey, diskManager.MachineName);
+
+                if (drives.Any())
+                    builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, Compose(drives));
+                else
+                    builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, "<tr class=\"tb2\"><td colspan=\"2\">None</td></tr>");
+
+                var recipients = config.Recipients.Select(r => r.Email);
+                if (recipients.Any())
+                    Send(config.MailSender,
+                        string.Format("Disk Status on {0}", diskManager.MachineName),
+                        builder.ToString(),
+                        recipients,
+                        false);
+                else
+                {
+                    var error = "Unable to send email. No recipients specified in config.";
+                    LogHelper.Instance.Error(error);
+                    throw new Exception(error);
+                }
+            }
+        }
+
+        #region Helper Methods
         private static StringBuilder CreateBuilder(string resource)
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -44,33 +123,7 @@ namespace DP.LSP.Tools.DiskMon.Core
             return builder.ToString();
         }
 
-        public static void Send(IEnumerable<Drive> lowDrives, IEnumerable<Drive> otherDrives)
-        {
-            var builder = CreateBuilder("DP.LSP.Tools.DiskMon.Template.html");
-            builder.Replace(Constants.EmailMachinePlaceholderKey, DiskManager.MachineName);
-            builder.Replace(Constants.EmailLowDrivesPlaceholderKey, Compose(lowDrives));
-
-            if (otherDrives.Any())
-                builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, Compose(otherDrives));
-            else
-                builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, "<tr class=\"tb2\"><td colspan=\"2\">None</td></tr>");
-
-            var recipients = ConfigurationHelper.Recipients.Select(r => r.Email);
-            if (recipients.Any())
-                Send(ConfigurationHelper.MailSender,
-                    string.Format("{0} on {1}", ConfigurationHelper.MailSubject, DiskManager.MachineName),
-                    builder.ToString(),
-                    recipients,
-                    true);
-            else
-            {
-                var error = "Unable to send email. No recipients specified in config.";
-                LogHelper.Logger.Error(error);
-                throw new Exception(error);
-            }
-        }
-
-        public static void Send(string sender, string subject, string message, IEnumerable<string> recipients, bool priority = false)
+        private static void Send(string sender, string subject, string message, IEnumerable<string> recipients, bool priority = false)
         {
             var mail = new MailMessage();
 
@@ -85,56 +138,18 @@ namespace DP.LSP.Tools.DiskMon.Core
 
             try
             {
-                var client = new SmtpClient(ConfigurationHelper.SmtpHost, ConfigurationHelper.SmtpPort);
+                var config = ServiceLocator.Instance.GetService<IConfigurationHelper>();
+                var client = new SmtpClient(config.SmtpHost, config.SmtpPort);
                 client.DeliveryMethod = SmtpDeliveryMethod.Network;
                 client.UseDefaultCredentials = false;
                 client.Send(mail);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                LogHelper.Logger.ErrorFormat("Unable to send email: {0}.", e);
+                LogHelper.Instance.ErrorFormat("Unable to send email: {0}.", e);
                 throw e;
             }
         }
-
-        //TODO: Refactor
-        public static void SendReport(IEnumerable<Drive> drives)
-        {
-            var lastReportDate = ConfigurationHelper.LastReportDate;
-            var sendReport = false;
-            switch (ConfigurationHelper.ReportingFrequency)
-            {
-                case ReportingFrequency.Daily: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 1; break;
-                case ReportingFrequency.Weekly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 7; break;
-                case ReportingFrequency.Monthly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 30; break;
-                case ReportingFrequency.Yearly: sendReport = (DateTime.Now - lastReportDate).TotalDays >= 365; break;
-            }
-
-            if (sendReport)
-            {
-                ConfigurationHelper.LastReportDate = DateTime.Now;
-                var builder = CreateBuilder("DP.LSP.Tools.DiskMon.Report.html");
-                builder.Replace(Constants.EmailMachinePlaceholderKey, DiskManager.MachineName);
-
-                if (drives.Any())
-                    builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, Compose(drives));
-                else
-                    builder.Replace(Constants.EmailOtherDrivesPlaceholderKey, "<tr class=\"tb2\"><td colspan=\"2\">None</td></tr>");
-
-                var recipients = ConfigurationHelper.Recipients.Select(r => r.Email);
-                if (recipients.Any())
-                    Send(ConfigurationHelper.MailSender,
-                        string.Format("Disk Status on {0}", DiskManager.MachineName),
-                        builder.ToString(),
-                        recipients,
-                        false);
-                else
-                {
-                    var error = "Unable to send email. No recipients specified in config.";
-                    LogHelper.Logger.Error(error);
-                    throw new Exception(error);
-                }
-            }
-        }
+        #endregion
     }
 }

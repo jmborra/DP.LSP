@@ -6,19 +6,26 @@ using DP.LSP.Tools.DiskMon.Configuration;
 
 namespace DP.LSP.Tools.DiskMon.Core
 {
-    internal sealed class DiskManager
+    interface IDiskManager
     {
-        public static string MachineName
+        string MachineName { get; }
+        IEnumerable<Drive> GetDrives(Func<Drive, bool> predicate);
+        IEnumerable<Drive> GetLowDrives();
+    }
+
+    internal class DiskManager : IDiskManager
+    {
+        public string MachineName
         {
             get { return System.Environment.MachineName; }
         }
 
-        public static IEnumerable<Drive> GetDrives(Func<Drive, bool> predicate)
+        public IEnumerable<Drive> GetDrives(Func<Drive, bool> predicate)
         {
-            return ConfigurationHelper.Drives.Where(predicate);
+            return ServiceLocator.Instance.GetService<IConfigurationHelper>().Drives.Where(predicate);
         }   
 
-        public static IEnumerable<Drive> GetLowDrives()
+        public IEnumerable<Drive> GetLowDrives()
         {
             return GetDrives(d => d.IsLow);
         }       

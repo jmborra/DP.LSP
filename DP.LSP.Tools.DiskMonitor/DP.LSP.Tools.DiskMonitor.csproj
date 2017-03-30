@@ -67,8 +67,9 @@
     <Compile Include="Core\Drive.cs" />
     <Compile Include="Core\EmailHelper.cs" />
     <Compile Include="Core\Recipient.cs" />
+    <Compile Include="Core\ServiceLocator.cs" />
     <Compile Include="Core\SizeConverter.cs" />
-    <Compile Include="LogHelper.cs" />
+    <Compile Include="Core\LogHelper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
